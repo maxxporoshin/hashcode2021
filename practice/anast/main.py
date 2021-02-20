@@ -1,9 +1,12 @@
 import random
+import argparse
 
 
 class CONFIG:
-  in_file = '../data/b.in'
-  out_file = 'a.out'
+  in_file = None
+  out_file = None
+  in_file_pattern = '../data/%s.in'
+  out_file_pattern = '%s.out'
 
   TEAM_CNT_IND_2 = 0
   TEAM_CNT_IND_3 = 1
@@ -152,8 +155,16 @@ def read_file():
       CONFIG.rm.add_pizza(pizza)
 
 
-read_file()
-CONFIG.rm.random_spread()
-rm.iteratively_update_spread()
-print("SCORE: ", CONFIG.rm.calc_score())
-CONFIG.rm.print_answer()
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser(description='Pizza task.')
+  parser.add_argument('in_file', type=str, help='name of example')
+
+  args = parser.parse_args()
+  CONFIG.in_file = CONFIG.in_file_pattern % args.in_file
+  CONFIG.out_file = CONFIG.out_file_pattern % args.in_file
+
+  read_file()
+  CONFIG.rm.random_spread()
+  CONFIG.rm.iteratively_update_spread()
+  print("SCORE: ", CONFIG.rm.calc_score())
+  CONFIG.rm.print_answer()
