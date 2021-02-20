@@ -2,7 +2,7 @@ import random
 
 
 class CONFIG:
-  in_file = 'b.in'
+  in_file = '../data/b.in'
   out_file = 'a.out'
 
   TEAM_CNT_IND_2 = 0
