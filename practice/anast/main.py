@@ -18,10 +18,25 @@ class CONFIG:
 
   rm = None
 
+  debug = False
+
+
 class Pizza:
   def __init__(self, i, ing):
     self.i = i
     self.ing = ing
+
+
+class Log:
+  @staticmethod
+  def debug(message):
+    if CONFIG.debug:
+      print(message)
+
+  @staticmethod
+  def info(message):
+    print(message)
+
 
 def team_ind_to_team_people_cnt(team_ind):
   if team_ind < CONFIG.TEAMS_CNT[CONFIG.TEAM_CNT_IND_2]:
@@ -70,7 +85,7 @@ class ResourceManager():
         self._random_pizzas_ind = 0
 
   def assign_delivery(self, team_id, pizzas_ids):
-    print("ASSIGN: %d %s" %(team_id, pizzas_ids))
+    Log.debug("ASSIGN: %d %s" %(team_id, pizzas_ids))
     for pizza_id in pizzas_ids:
       self.pizzas_b[pizza_id] = team_id
       self.free_pizzas -= 1
@@ -79,7 +94,7 @@ class ResourceManager():
 
   def deassign_delivery(self, team_id):
     pizzas_ids = self.teams_b[team_id]
-    print("DeASSIGN: %d %s" %(team_id, pizzas_ids))
+    Log.debug("DeASSIGN: %d %s" %(team_id, pizzas_ids))
     for pizza_id in pizzas_ids:
       self.pizzas_b[pizza_id] = -1
       self.free_pizzas += 1
@@ -118,7 +133,7 @@ class ResourceManager():
     for t_b in self.teams_b:
       if t_b is not None:
         delivered_teams_cnt += 1
-    print(delivered_teams_cnt)
+    Log.info(delivered_teams_cnt)
     for team_ind, t_b in enumerate(self.teams_b):
       if t_b is not None:
         team_people_cnt = team_ind_to_team_people_cnt(team_ind)
@@ -127,10 +142,67 @@ class ResourceManager():
         res = [team_people_cnt] + list(t_b)
         res = [str(e) for e in res]
         line = ' '.join(res)
-        print(line)
+        Log.info(line)
+
+  def _block_change_pair_operation(self, N, pair_attempts=1):
+    teams_ids = [team_id for team_id, t_b in enumerate(self.teams_b) if t_b is not None]
+
+    score_update = 0
+    success = 0
+    while N > 0:
+      cur_team_id_1 = random.choice(teams_ids)
+      cur_team_id_2 = random.choice(teams_ids)
+
+      if cur_team_id_1 == cur_team_id_2:
+        continue
+      
+      pizzas_1 = list(self.teams_b[cur_team_id_1])
+      pizzas_2 = list(self.teams_b[cur_team_id_2])
+
+      before_score = self.calc_team_score(pizzas_1) + self.calc_team_score(pizzas_2)
+      
+      results = None
+      for _ in range(pair_attempts):
+        p_i_1 = random.randrange(0, len(pizzas_1))
+        p_i_2 = random.randrange(0, len(pizzas_2))
+
+        t = pizzas_1[p_i_1] 
+        pizzas_1[p_i_1] = pizzas_2[p_i_2]
+        pizzas_2[p_i_2] = t
+
+        after_score = self.calc_team_score(pizzas_1) + self.calc_team_score(pizzas_2)
+
+        if after_score > before_score:
+          if results is None or results[0] < after_score:
+            results = (after_score, list(pizzas_1), list(pizzas_2))
+
+        # revert back
+        t = pizzas_1[p_i_1] 
+        pizzas_1[p_i_1] = pizzas_2[p_i_2]
+        pizzas_2[p_i_2] = t
+      
+      if results is not None:
+        (after_score, pizzas_1, pizzas_2) = results
+        assert(after_score == self.calc_team_score(pizzas_1) + self.calc_team_score(pizzas_2))
+
+        self.deassign_delivery(cur_team_id_1)
+        self.deassign_delivery(cur_team_id_2)
+        self.assign_delivery(cur_team_id_1, pizzas_1)
+        self.assign_delivery(cur_team_id_2, pizzas_2)
+        success += 1
+        score_update += after_score - before_score
+
+      N -= 1
+
+    Log.debug("Block change pair: %d teams, %d operations, %d success, +%d score_update" % (len(teams_ids), N, success, score_update))
+
+  def _block_change_new_pizzas_operation(self, N):
+    pass
+
 
   def iteratively_update_spread(self):
-    a = 0
+    for _ in range(100):
+      self._block_change_pair_operation(100, pair_attempts=2)
 
 
 def read_file():
@@ -158,13 +230,15 @@ def read_file():
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Pizza task.')
   parser.add_argument('in_file', type=str, help='name of example')
+  parser.add_argument('--debug', action='store_true', help='for debug logs')
 
   args = parser.parse_args()
   CONFIG.in_file = CONFIG.in_file_pattern % args.in_file
   CONFIG.out_file = CONFIG.out_file_pattern % args.in_file
+  CONFIG.debug = args.debug
 
   read_file()
   CONFIG.rm.random_spread()
   CONFIG.rm.iteratively_update_spread()
-  print("SCORE: ", CONFIG.rm.calc_score())
+  Log.info("SCORE: %d, Free teams: %d, Free pizzas: %d" % (CONFIG.rm.calc_score(), CONFIG.rm.free_teams, CONFIG.rm.free_pizzas))
   CONFIG.rm.print_answer()
