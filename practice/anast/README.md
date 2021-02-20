@@ -3,7 +3,8 @@ Update `in_file` in the solution.
 1. `python3 main.py`
 
 
-Approach: random spread
+Approach: 
+1. random spread
 
 
 Results:
